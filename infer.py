@@ -16,6 +16,11 @@ parser.add_argument('--batch_size', dest='batch_size', type=int, default=16, hel
 parser.add_argument('--source_obj', dest='source_obj', type=str, required=True, help='the source images for inference')
 parser.add_argument('--embedding_ids', default='embedding_ids', type=str, help='embeddings involved')
 parser.add_argument('--save_dir', default='save_dir', type=str, help='path to save inferred images')
+parser.add_argument('--inst_norm', dest='inst_norm', type=bool, default=False,
+                    help='use conditional instance normalization in your model')
+parser.add_argument('--interpolate', dest='interpolate', type=bool, default=False,
+                    help='interpolate between different embedding vectors')
+parser.add_argument('--steps', dest='steps', type=int, default=10, help='interpolation steps in between vectors')
 args = parser.parse_args()
 
 
@@ -26,11 +31,17 @@ def main(_):
     with tf.Session(config=config) as sess:
         model = UNet(args.experiment_dir, batch_size=args.batch_size, experiment_id=args.experiment_id)
         model.register_session(sess)
-        model.build_model()
+        model.build_model(args.inst_norm)
         embedding_ids = [int(i) for i in args.embedding_ids.split(",")]
-        if len(embedding_ids) == 1:
-            embedding_ids = embedding_ids[0]
-        model.infer(source_obj=args.source_obj, embedding_ids=embedding_ids, save_dir=args.save_dir)
+        if not args.interpolate:
+            if len(embedding_ids) == 1:
+                embedding_ids = embedding_ids[0]
+            model.infer(source_obj=args.source_obj, embedding_ids=embedding_ids, save_dir=args.save_dir)
+        else:
+            if len(embedding_ids) != 2:
+                raise Exception("for interpolation, len(embedding_ids) has to equal 2")
+            model.interpolate(source_obj=args.source_obj, between=embedding_ids, save_dir=args.save_dir,
+                              steps=args.steps)
 
 
 if __name__ == '__main__':

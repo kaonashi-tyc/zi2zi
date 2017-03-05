@@ -1,2 +1,5 @@
 *.pyc
 datasets/
+experiments/
+.DS_Store
+.idea/

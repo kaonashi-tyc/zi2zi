@@ -56,3 +56,20 @@ def init_embedding(size, dimension, stddev=0.01, scope="embedding"):
     with tf.variable_scope(scope):
         return tf.get_variable("E", [size, 1, 1, dimension], tf.float32,
                                tf.random_normal_initializer(stddev=stddev))
+
+
+def conditional_instance_norm(x, ids, labels_num, mixed=False, scope="conditional_instance_norm"):
+    with tf.variable_scope(scope):
+        shape = x.get_shape().as_list()
+        batch_size, output_filters = shape[0], shape[-1]
+        scale = tf.get_variable("scale", [labels_num, output_filters], tf.float32, tf.constant_initializer(1.0))
+        shift = tf.get_variable("shift", [labels_num, output_filters], tf.float32, tf.constant_initializer(0.0))
+
+        mu, sigma = tf.nn.moments(x, [1, 2], keep_dims=True)
+        norm = (x - mu) / tf.sqrt(sigma + 1e-5)
+
+        batch_scale = tf.reshape(tf.nn.embedding_lookup([scale], ids=ids), [batch_size, 1, 1, output_filters])
+        batch_shift = tf.reshape(tf.nn.embedding_lookup([shift], ids=ids), [batch_size, 1, 1, output_filters])
+
+        z = norm * batch_scale + batch_shift
+        return z

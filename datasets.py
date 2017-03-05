@@ -66,8 +66,8 @@ class TrainDataProvider(object):
         self.val = PickledImageProvider(os.path.join(self.data_dir, val_name))
         if self.filter_by:
             print("filter by label ->", filter_by)
-            self.train.examples = filter(lambda e: e[0] == self.filter_by, self.train.examples)
-            self.val.examples = filter(lambda e: e[0] == self.filter_by, self.val.examples)
+            self.train.examples = filter(lambda e: e[0] in self.filter_by, self.train.examples)
+            self.val.examples = filter(lambda e: e[0] in self.filter_by, self.val.examples)
         print("train examples -> %d, val examples -> %d" % (len(self.train.examples), len(self.val.examples)))
 
     def get_train_iter(self, batch_size, shuffle=True):

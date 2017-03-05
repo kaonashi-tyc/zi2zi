@@ -8,9 +8,9 @@ import scipy.misc as misc
 import os
 import time
 from collections import namedtuple
-from ops import conv2d, deconv2d, lrelu, fc, batch_norm, init_embedding
+from ops import conv2d, deconv2d, lrelu, fc, batch_norm, init_embedding, conditional_instance_norm
 from datasets import TrainDataProvider, InjectDataProvider
-from utils import scale_back, merge
+from utils import scale_back, merge, save_concat_images
 
 # Auxiliary wrapper classes
 # Used to save handles(important nodes in computation graph) for later evaluation
@@ -79,7 +79,7 @@ class UNet(object):
 
         return e8, encode_layers
 
-    def decoder(self, encoded, encoding_layers, reuse=False):
+    def decoder(self, encoded, encoding_layers, ids, inst_norm, reuse=False):
         if reuse:
             tf.get_variable_scope().reuse_variables()
 
@@ -91,9 +91,15 @@ class UNet(object):
             dec = deconv2d(tf.nn.relu(x), [self.batch_size, output_width,
                                            output_width, output_filters], scope="g_d%d_deconv" % layer)
             if layer != 8:
-                # IMPORTANT: NO batch normalization for last layer
+                # IMPORTANT: normalization for last layer
                 # Very important, otherwise GAN is unstable
-                dec = batch_norm(dec, scope="g_d%d_bn" % layer)
+                # Trying conditional instance normalization to
+                # overcome the fact that batch normalization offers
+                # different train/test statistics
+                if inst_norm:
+                    dec = conditional_instance_norm(dec, ids, self.embedding_num, scope="g_d%d_inst_norm" % layer)
+                else:
+                    dec = batch_norm(dec, scope="g_d%d_bn" % layer)
             if dropout:
                 dec = tf.nn.dropout(dec, 0.5)
             if do_concat:
@@ -112,12 +118,12 @@ class UNet(object):
         output = tf.nn.tanh(d8)  # scale to (-1, 1)
         return output
 
-    def generator(self, images, embeddings, embedding_ids, reuse=False):
+    def generator(self, images, embeddings, embedding_ids, inst_norm, reuse=False):
         e8, enc_layers = self.encoder(images, reuse=reuse)
         local_embeddings = tf.nn.embedding_lookup(embeddings, ids=embedding_ids)
         local_embeddings = tf.reshape(local_embeddings, [self.batch_size, 1, 1, self.embedding_dim])
         embedded = tf.concat(3, [e8, local_embeddings])
-        output = self.decoder(embedded, enc_layers, reuse=reuse)
+        output = self.decoder(embedded, enc_layers, embedding_ids, inst_norm, reuse=reuse)
         return output, e8
 
     def discriminator(self, image, reuse=False):
@@ -134,7 +140,7 @@ class UNet(object):
 
         return tf.nn.sigmoid(fc1), fc1, fc2
 
-    def build_model(self):
+    def build_model(self, inst_norm=False):
         real_data = tf.placeholder(tf.float32,
                                    [self.batch_size, self.input_width, self.input_width,
                                     self.input_filters + self.output_filters],
@@ -146,7 +152,7 @@ class UNet(object):
         real_A = real_data[:, :, :, self.input_filters:self.input_filters + self.output_filters]
 
         embedding = init_embedding(self.embedding_num, self.embedding_dim)
-        fake_B, encoded_real_B = self.generator(real_A, embedding, embedding_ids)
+        fake_B, encoded_real_B = self.generator(real_A, embedding, embedding_ids, inst_norm)
         real_AB = tf.concat(3, [real_A, real_B])
         fake_AB = tf.concat(3, [real_A, fake_B])
 
@@ -320,11 +326,10 @@ class UNet(object):
         saver = tf.train.Saver()
         self.restore_model(saver)
 
-        def save_concat_images(imgs, count):
-            concated = np.concatenate(imgs, axis=1)
-            img_path = os.path.join(save_dir, "inferred_%04d.png" % count)
-            misc.imsave(img_path, concated)
-            print("img saved at %s" % img_path)
+        def save_imgs(imgs, count):
+            p = os.path.join(save_dir, "inferred_%04d.png" % count)
+            save_concat_images(imgs, count, img_path=p)
+            print("generated images saved at %s" % p)
 
         count = 0
         batch_buffer = list()
@@ -333,12 +338,78 @@ class UNet(object):
             merged_fake_images = merge(scale_back(fake_imgs), [self.batch_size, 1])
             batch_buffer.append(merged_fake_images)
             if len(batch_buffer) == 10:
-                save_concat_images(batch_buffer, count)
+                save_imgs(batch_buffer, count)
                 batch_buffer = list()
             count += 1
         if batch_buffer:
             # last batch
-            save_concat_images(batch_buffer, count)
+            save_imgs(batch_buffer, count)
+
+    def interpolate(self, source_obj, between, save_dir, steps):
+        tf.global_variables_initializer().run()
+        saver = tf.train.Saver()
+        self.restore_model(saver)
+        # new interpolated dimension
+        new_x_dim = steps + 1
+
+        def _interpolate_tensor(_tensor):
+            """
+            Compute the interpolated tensor here
+            """
+            alphas = np.linspace(0.0, 1.0, new_x_dim)
+            x = _tensor[between[0]]
+            y = _tensor[between[1]]
+
+            interpolated = list()
+            for alpha in alphas:
+                interpolated.append(x * (1. - alpha) + alpha * y)
+
+            interpolated = np.asarray(interpolated, dtype=np.float32)
+            return interpolated
+
+        def filter_embedding_vars(var):
+            var_name = var.name
+            if var_name.startswith("embedding"):
+                return True
+            if var_name.find("inst_norm/shift") != -1 or var_name.find("inst_norm/scale") != -1:
+                return True
+            return False
+
+        embedding_vars = filter(filter_embedding_vars, tf.trainable_variables())
+        # here comes the hack, we overwrite the original tensor
+        # with interpolated ones. Note, the shape might differ
+        for e_var in embedding_vars:
+            t = _interpolate_tensor(e_var.eval(session=self.sess))
+            op = tf.assign(e_var, t, validate_shape=False)
+            print("overwrite %s tensor" % e_var.name, "old_shape ->", e_var.get_shape(), "new shape ->", t.shape)
+            self.sess.run(op)
+
+        source_provider = InjectDataProvider(source_obj)
+        input_handle, _, eval_handle, _ = self.retrieve_handles()
+        for label in range(new_x_dim):
+            print("interpolate %d" % label)
+            source_iter = source_provider.get_single_embedding_iter(self.batch_size, 0)
+            batch_buffer = list()
+            count = 0
+            for _, source_imgs in source_iter:
+                count += 1
+                labels = [label] * self.batch_size
+                generated, = self.sess.run([eval_handle.generator],
+                                           feed_dict={
+                                               input_handle.real_data: source_imgs,
+                                               input_handle.embedding_ids: labels
+                                           })
+                merged_fake_images = merge(scale_back(generated), [self.batch_size, 1])
+                batch_buffer.append(merged_fake_images)
+                if len(batch_buffer) == 10:
+                    save_concat_images(batch_buffer, count,
+                                       os.path.join(save_dir, "batch_%04d_interpolated_%02d.png" % (count, label)))
+                    print("batch %d saved" % count)
+                    batch_buffer = list()
+            if len(batch_buffer):
+                save_concat_images(batch_buffer, count,
+                                   os.path.join(save_dir, "batch_%04d_interpolated_%02d.png" % (count, label)))
+                print("batch %d saved" % count)
 
     def train(self, lr=0.0002, epoch=100, schedule=10, resume=False, freeze_encoder=False, fine_tune=None):
         g_vars, d_vars = self.retrieve_trainable_vars(freeze_encoder=freeze_encoder)
@@ -359,7 +430,7 @@ class UNet(object):
         total_batches = data_provider.compute_total_batch_num(self.batch_size)
         val_batch_iter = data_provider.get_val_iter(self.batch_size)
 
-        saver = tf.train.Saver()
+        saver = tf.train.Saver(max_to_keep=3)
         summary_writer = tf.summary.FileWriter(self.log_dir, self.sess.graph)
 
         if resume:

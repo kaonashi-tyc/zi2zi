@@ -24,9 +24,10 @@ parser.add_argument('--schedule', dest='schedule', type=int, default=10, help='n
 parser.add_argument('--resume', dest='resume', type=bool, default=True, help='resume from previous training')
 parser.add_argument('--freeze_encoder', dest='freeze_encoder', type=bool, default=False,
                     help="freeze encoder weights during training")
-parser.add_argument('--fine_tune', dest='fine_tune', type=int, default=0,
+parser.add_argument('--fine_tune', dest='fine_tune', type=str, default=None,
                     help='specific labels id to be fine tuned')
-
+parser.add_argument('--inst_norm', dest='inst_norm', type=bool, default=False,
+                    help='use conditional instance normalization in your model')
 args = parser.parse_args()
 
 
@@ -39,9 +40,13 @@ def main(_):
                      input_width=args.image_size, output_width=args.image_size, embedding_num=args.embedding_num,
                      embedding_dim=args.embedding_dim)
         model.register_session(sess)
-        model.build_model()
+        model.build_model(inst_norm=args.inst_norm)
+        fine_tune_list = None
+        if args.fine_tune:
+            ids = args.fine_tune.split(",")
+            fine_tune_list = set([int(i) for i in ids])
         model.train(lr=args.lr, epoch=args.epoch, resume=args.resume,
-                    schedule=args.schedule, freeze_encoder=args.freeze_encoder, fine_tune=args.fine_tune)
+                    schedule=args.schedule, freeze_encoder=args.freeze_encoder, fine_tune=fine_tune_list)
 
 
 if __name__ == '__main__':
