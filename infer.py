@@ -31,7 +31,7 @@ def main(_):
     with tf.Session(config=config) as sess:
         model = UNet(args.experiment_dir, batch_size=args.batch_size, experiment_id=args.experiment_id)
         model.register_session(sess)
-        model.build_model(args.inst_norm)
+        model.build_model(is_training=False, inst_norm=args.inst_norm)
         embedding_ids = [int(i) for i in args.embedding_ids.split(",")]
         if not args.interpolate:
             if len(embedding_ids) == 1:

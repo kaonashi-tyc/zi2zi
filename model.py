@@ -54,7 +54,7 @@ class UNet(object):
             os.makedirs(self.sample_dir)
             print("create sample directory")
 
-    def encoder(self, images, reuse=False):
+    def encoder(self, images, is_training, reuse=False):
         if reuse:
             tf.get_variable_scope().reuse_variables()
 
@@ -63,7 +63,7 @@ class UNet(object):
         def encode_layer(x, output_filters, layer):
             act = lrelu(x)
             conv = conv2d(act, output_filters=output_filters, scope="g_e%d_conv" % layer)
-            enc = batch_norm(conv, scope="g_e%d_bn" % layer)
+            enc = batch_norm(conv, is_training, scope="g_e%d_bn" % layer)
             encode_layers["e%d" % layer] = enc
             return enc
 
@@ -79,7 +79,7 @@ class UNet(object):
 
         return e8, encode_layers
 
-    def decoder(self, encoded, encoding_layers, ids, inst_norm, reuse=False):
+    def decoder(self, encoded, encoding_layers, ids, inst_norm, is_training, reuse=False):
         if reuse:
             tf.get_variable_scope().reuse_variables()
 
@@ -99,7 +99,7 @@ class UNet(object):
                 if inst_norm:
                     dec = conditional_instance_norm(dec, ids, self.embedding_num, scope="g_d%d_inst_norm" % layer)
                 else:
-                    dec = batch_norm(dec, scope="g_d%d_bn" % layer)
+                    dec = batch_norm(dec, is_training, scope="g_d%d_bn" % layer)
             if dropout:
                 dec = tf.nn.dropout(dec, 0.5)
             if do_concat:
@@ -118,21 +118,24 @@ class UNet(object):
         output = tf.nn.tanh(d8)  # scale to (-1, 1)
         return output
 
-    def generator(self, images, embeddings, embedding_ids, inst_norm, reuse=False):
-        e8, enc_layers = self.encoder(images, reuse=reuse)
+    def generator(self, images, embeddings, embedding_ids, inst_norm, is_training, reuse=False):
+        e8, enc_layers = self.encoder(images, is_training=is_training, reuse=reuse)
         local_embeddings = tf.nn.embedding_lookup(embeddings, ids=embedding_ids)
         local_embeddings = tf.reshape(local_embeddings, [self.batch_size, 1, 1, self.embedding_dim])
         embedded = tf.concat(3, [e8, local_embeddings])
-        output = self.decoder(embedded, enc_layers, embedding_ids, inst_norm, reuse=reuse)
+        output = self.decoder(embedded, enc_layers, embedding_ids, inst_norm, is_training=is_training, reuse=reuse)
         return output, e8
 
-    def discriminator(self, image, reuse=False):
+    def discriminator(self, image, is_training, reuse=False):
         if reuse:
             tf.get_variable_scope().reuse_variables()
         h0 = lrelu(conv2d(image, self.discriminator_dim, scope="d_h0_conv"))
-        h1 = lrelu(batch_norm(conv2d(h0, self.discriminator_dim * 2, scope="d_h1_conv"), scope="d_bn_1"))
-        h2 = lrelu(batch_norm(conv2d(h1, self.discriminator_dim * 4, scope="d_h2_conv"), scope="d_bn_2"))
-        h3 = lrelu(batch_norm(conv2d(h2, self.discriminator_dim * 8, sh=1, sw=1, scope="d_h3_conv"), scope="d_bn_3"))
+        h1 = lrelu(batch_norm(conv2d(h0, self.discriminator_dim * 2, scope="d_h1_conv"),
+                              is_training, scope="d_bn_1"))
+        h2 = lrelu(batch_norm(conv2d(h1, self.discriminator_dim * 4, scope="d_h2_conv"),
+                              is_training, scope="d_bn_2"))
+        h3 = lrelu(batch_norm(conv2d(h2, self.discriminator_dim * 8, sh=1, sw=1, scope="d_h3_conv"),
+                              is_training, scope="d_bn_3"))
         # real or fake binary loss
         fc1 = fc(tf.reshape(h3, [self.batch_size, -1]), 1, scope="d_fc1")
         # category loss
@@ -140,7 +143,7 @@ class UNet(object):
 
         return tf.nn.sigmoid(fc1), fc1, fc2
 
-    def build_model(self, inst_norm=False):
+    def build_model(self, is_training=True, inst_norm=False):
         real_data = tf.placeholder(tf.float32,
                                    [self.batch_size, self.input_width, self.input_width,
                                     self.input_filters + self.output_filters],
@@ -152,19 +155,20 @@ class UNet(object):
         real_A = real_data[:, :, :, self.input_filters:self.input_filters + self.output_filters]
 
         embedding = init_embedding(self.embedding_num, self.embedding_dim)
-        fake_B, encoded_real_B = self.generator(real_A, embedding, embedding_ids, inst_norm)
+        fake_B, encoded_real_B = self.generator(real_A, embedding, embedding_ids, is_training=is_training,
+                                                inst_norm=inst_norm)
         real_AB = tf.concat(3, [real_A, real_B])
         fake_AB = tf.concat(3, [real_A, fake_B])
 
         # Note it is not possible to set reuse flag back to False
         # initialize all variables before setting reuse to True
-        real_D, real_D_logits, real_category_logits = self.discriminator(real_AB, reuse=False)
-        fake_D, fake_D_logits, fake_category_logits = self.discriminator(fake_AB, reuse=True)
+        real_D, real_D_logits, real_category_logits = self.discriminator(real_AB, is_training=is_training, reuse=False)
+        fake_D, fake_D_logits, fake_category_logits = self.discriminator(fake_AB, is_training=is_training, reuse=True)
 
         # encoding constant loss
         # this loss assume that generated imaged and real image
         # should reside in the same space and close to each other
-        encoded_fake_B = self.encoder(fake_B, reuse=True)[0]
+        encoded_fake_B = self.encoder(fake_B, is_training, reuse=True)[0]
         const_loss = tf.reduce_mean(tf.square(encoded_real_B - encoded_fake_B)) * self.Lconst_penalty
 
         # category loss
@@ -411,7 +415,8 @@ class UNet(object):
                                    os.path.join(save_dir, "batch_%04d_interpolated_%02d.png" % (count, label)))
                 print("batch %d saved" % count)
 
-    def train(self, lr=0.0002, epoch=100, schedule=10, resume=False, freeze_encoder=False, fine_tune=None):
+    def train(self, lr=0.0002, epoch=100, schedule=10, resume=False,
+              freeze_encoder=False, fine_tune=None, sample_steps=10):
         g_vars, d_vars = self.retrieve_trainable_vars(freeze_encoder=freeze_encoder)
         input_handle, loss_handle, _, summary_handle = self.retrieve_handles()
 
@@ -490,11 +495,11 @@ class UNet(object):
                 summary_writer.add_summary(d_summary, counter)
                 summary_writer.add_summary(g_summary, counter)
 
-                if counter % 10 == 0:
+                if counter % sample_steps == 0:
                     # sample the current model states with val data
                     self.validate_model(val_batch_iter, ei, counter)
 
-                if (counter + 1) % 500 == 0:
+                if counter % 500 == 0:
                     print("Checkpoint: save checkpoint step %d" % counter)
                     self.checkpoint(saver, counter)
         # save the last checkpoint
