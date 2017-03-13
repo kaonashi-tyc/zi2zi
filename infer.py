@@ -20,10 +20,8 @@ def compile_frames_to_gif(frame_dir, gif_file):
 
 
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('--experiment_dir', dest='experiment_dir', required=True,
-                    help='experiment directory, data, samples,checkpoints,etc')
-parser.add_argument('--experiment_id', dest='experiment_id', type=int, default=0,
-                    help='sequence id for the experiments you prepare to run')
+parser.add_argument('--model_dir', dest='model_dir', required=True,
+                    help='directory that saves the model checkpoints')
 parser.add_argument('--batch_size', dest='batch_size', type=int, default=16, help='number of examples in batch')
 parser.add_argument('--source_obj', dest='source_obj', type=str, required=True, help='the source images for inference')
 parser.add_argument('--embedding_ids', default='embedding_ids', type=str, help='embeddings involved')
@@ -42,19 +40,20 @@ def main(_):
     config.gpu_options.allow_growth = True
 
     with tf.Session(config=config) as sess:
-        model = UNet(args.experiment_dir, batch_size=args.batch_size, experiment_id=args.experiment_id)
+        model = UNet(batch_size=args.batch_size)
         model.register_session(sess)
         model.build_model(is_training=False, inst_norm=args.inst_norm)
         embedding_ids = [int(i) for i in args.embedding_ids.split(",")]
         if not args.interpolate:
             if len(embedding_ids) == 1:
                 embedding_ids = embedding_ids[0]
-            model.infer(source_obj=args.source_obj, embedding_ids=embedding_ids, save_dir=args.save_dir)
+            model.infer(model_dir=args.model_dir, source_obj=args.source_obj, embedding_ids=embedding_ids,
+                        save_dir=args.save_dir)
         else:
             if len(embedding_ids) != 2:
                 raise Exception("for interpolation, len(embedding_ids) has to equal 2")
-            model.interpolate(source_obj=args.source_obj, between=embedding_ids, save_dir=args.save_dir,
-                              steps=args.steps)
+            model.interpolate(model_dir=args.model_dir, source_obj=args.source_obj, between=embedding_ids,
+                              save_dir=args.save_dir, steps=args.steps)
             if args.output_gif:
                 gif_path = os.path.join(args.save_dir, args.output_gif)
                 compile_frames_to_gif(args.save_dir, gif_path)

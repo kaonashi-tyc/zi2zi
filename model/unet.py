@@ -21,7 +21,7 @@ SummaryHandle = namedtuple("SummaryHandle", ["d_merged", "g_merged"])
 
 
 class UNet(object):
-    def __init__(self, experiment_dir, experiment_id=0, batch_size=16, input_width=256, output_width=256,
+    def __init__(self, experiment_dir=None, experiment_id=0, batch_size=16, input_width=256, output_width=256,
                  generator_dim=64, discriminator_dim=64, L1_penalty=100, Lconst_penalty=15, embedding_num=40,
                  embedding_dim=128, input_filters=3, output_filters=3):
         self.experiment_dir = experiment_dir
@@ -39,20 +39,22 @@ class UNet(object):
         self.output_filters = output_filters
         # init all the directories
         self.sess = None
-        self.data_dir = os.path.join(self.experiment_dir, "data")
-        self.checkpoint_dir = os.path.join(self.experiment_dir, "checkpoint")
-        self.sample_dir = os.path.join(self.experiment_dir, "sample")
-        self.log_dir = os.path.join(self.experiment_dir, "logs")
+        # experiment_dir is needed for training
+        if experiment_dir:
+            self.data_dir = os.path.join(self.experiment_dir, "data")
+            self.checkpoint_dir = os.path.join(self.experiment_dir, "checkpoint")
+            self.sample_dir = os.path.join(self.experiment_dir, "sample")
+            self.log_dir = os.path.join(self.experiment_dir, "logs")
 
-        if not os.path.exists(self.checkpoint_dir):
-            os.makedirs(self.checkpoint_dir)
-            print("create checkpoint directory")
-        if not os.path.exists(self.log_dir):
-            os.makedirs(self.log_dir)
-            print("create log directory")
-        if not os.path.exists(self.sample_dir):
-            os.makedirs(self.sample_dir)
-            print("create sample directory")
+            if not os.path.exists(self.checkpoint_dir):
+                os.makedirs(self.checkpoint_dir)
+                print("create checkpoint directory")
+            if not os.path.exists(self.log_dir):
+                os.makedirs(self.log_dir)
+                print("create log directory")
+            if not os.path.exists(self.sample_dir):
+                os.makedirs(self.sample_dir)
+                print("create sample directory")
 
     def encoder(self, images, is_training, reuse=False):
         if reuse:
@@ -252,6 +254,11 @@ class UNet(object):
 
         return g_vars, d_vars
 
+    def retrieve_generator_vars(self):
+        all_vars = tf.global_variables()
+        generate_vars = [var for var in all_vars if 'embedding' in var.name or "g_" in var.name]
+        return generate_vars
+
     def retrieve_handles(self):
         input_handle = getattr(self, "input_handle")
         loss_handle = getattr(self, "loss_handle")
@@ -274,16 +281,15 @@ class UNet(object):
 
         saver.save(self.sess, os.path.join(model_dir, model_name), global_step=step)
 
-    def restore_model(self, saver):
-        model_id, model_dir = self.get_model_id_and_dir()
+    def restore_model(self, saver, model_dir):
 
         ckpt = tf.train.get_checkpoint_state(model_dir)
 
         if ckpt:
             saver.restore(self.sess, ckpt.model_checkpoint_path)
-            print("restored model %s" % model_id)
+            print("restored model %s" % model_dir)
         else:
-            print("fail to restore model %s" % model_id)
+            print("fail to restore model %s" % model_dir)
 
     def generate_fake_samples(self, input_images, embedding_ids):
         input_handle, loss_handle, eval_handle, summary_handle = self.retrieve_handles()
@@ -317,15 +323,14 @@ class UNet(object):
         sample_img_path = os.path.join(model_sample_dir, "sample_%02d_%04d.png" % (epoch, step))
         misc.imsave(sample_img_path, merged_pair)
 
-    def export_generator(self, save_dir, model_name="gen_model"):
-        g_vars, _ = self.retrieve_trainable_vars()
+    def export_generator(self, save_dir, model_dir, model_name="gen_model"):
         saver = tf.train.Saver()
-        self.restore_model(saver)
+        self.restore_model(saver, model_dir)
 
-        gen_saver = tf.train.Saver(var_list=g_vars)
-        gen_saver.save(self.sess, os.path.join(save_dir, model_name))
+        gen_saver = tf.train.Saver(var_list=self.retrieve_generator_vars())
+        gen_saver.save(self.sess, os.path.join(save_dir, model_name), global_step=0)
 
-    def infer(self, source_obj, embedding_ids, save_dir):
+    def infer(self, source_obj, embedding_ids, model_dir, save_dir):
         source_provider = InjectDataProvider(source_obj)
 
         if isinstance(embedding_ids, int) or len(embedding_ids) == 1:
@@ -335,8 +340,8 @@ class UNet(object):
             source_iter = source_provider.get_random_embedding_iter(self.batch_size, embedding_ids)
 
         tf.global_variables_initializer().run()
-        saver = tf.train.Saver()
-        self.restore_model(saver)
+        saver = tf.train.Saver(var_list=self.retrieve_generator_vars())
+        self.restore_model(saver, model_dir)
 
         def save_imgs(imgs, count):
             p = os.path.join(save_dir, "inferred_%04d.png" % count)
@@ -357,10 +362,10 @@ class UNet(object):
             # last batch
             save_imgs(batch_buffer, count)
 
-    def interpolate(self, source_obj, between, save_dir, steps):
+    def interpolate(self, source_obj, between, model_dir, save_dir, steps):
         tf.global_variables_initializer().run()
-        saver = tf.train.Saver()
-        self.restore_model(saver)
+        saver = tf.train.Saver(var_list=self.retrieve_generator_vars())
+        self.restore_model(saver, model_dir)
         # new interpolated dimension
         new_x_dim = steps + 1
         alphas = np.linspace(0.0, 1.0, new_x_dim)
@@ -450,7 +455,8 @@ class UNet(object):
         summary_writer = tf.summary.FileWriter(self.log_dir, self.sess.graph)
 
         if resume:
-            self.restore_model(saver)
+            _, model_dir = self.get_model_id_and_dir()
+            self.restore_model(saver, model_dir)
 
         current_lr = lr
         counter = 0
