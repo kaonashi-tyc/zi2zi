@@ -8,9 +8,9 @@ import scipy.misc as misc
 import os
 import time
 from collections import namedtuple
-from ops import conv2d, deconv2d, lrelu, fc, batch_norm, init_embedding, conditional_instance_norm
-from datasets import TrainDataProvider, InjectDataProvider
-from utils import scale_back, merge, save_concat_images
+from .ops import conv2d, deconv2d, lrelu, fc, batch_norm, init_embedding, conditional_instance_norm
+from .dataset import TrainDataProvider, InjectDataProvider
+from .utils import scale_back, merge, save_concat_images
 
 # Auxiliary wrapper classes
 # Used to save handles(important nodes in computation graph) for later evaluation
@@ -317,6 +317,14 @@ class UNet(object):
         sample_img_path = os.path.join(model_sample_dir, "sample_%02d_%04d.png" % (epoch, step))
         misc.imsave(sample_img_path, merged_pair)
 
+    def export_generator(self, save_dir, model_name="gen_model"):
+        g_vars, _ = self.retrieve_trainable_vars()
+        saver = tf.train.Saver()
+        self.restore_model(saver)
+
+        gen_saver = tf.train.Saver(var_list=g_vars)
+        gen_saver.save(self.sess, os.path.join(save_dir, model_name))
+
     def infer(self, source_obj, embedding_ids, save_dir):
         source_provider = InjectDataProvider(source_obj)
 
@@ -355,12 +363,13 @@ class UNet(object):
         self.restore_model(saver)
         # new interpolated dimension
         new_x_dim = steps + 1
+        alphas = np.linspace(0.0, 1.0, new_x_dim)
 
         def _interpolate_tensor(_tensor):
             """
             Compute the interpolated tensor here
             """
-            alphas = np.linspace(0.0, 1.0, new_x_dim)
+
             x = _tensor[between[0]]
             y = _tensor[between[1]]
 
@@ -390,14 +399,15 @@ class UNet(object):
 
         source_provider = InjectDataProvider(source_obj)
         input_handle, _, eval_handle, _ = self.retrieve_handles()
-        for label in range(new_x_dim):
-            print("interpolate %d" % label)
+        for step_idx in range(len(alphas)):
+            alpha = alphas[step_idx]
+            print("interpolate %d -> %.4f + %d -> %.4f" % (between[0], 1. - alpha, between[1], alpha))
             source_iter = source_provider.get_single_embedding_iter(self.batch_size, 0)
             batch_buffer = list()
             count = 0
             for _, source_imgs in source_iter:
                 count += 1
-                labels = [label] * self.batch_size
+                labels = [step_idx] * self.batch_size
                 generated, = self.sess.run([eval_handle.generator],
                                            feed_dict={
                                                input_handle.real_data: source_imgs,
@@ -405,17 +415,18 @@ class UNet(object):
                                            })
                 merged_fake_images = merge(scale_back(generated), [self.batch_size, 1])
                 batch_buffer.append(merged_fake_images)
-                if len(batch_buffer) == 10:
+                if len(batch_buffer) == 16:
                     save_concat_images(batch_buffer, count,
-                                       os.path.join(save_dir, "batch_%04d_interpolated_%02d.png" % (count, label)))
-                    print("batch %d saved" % count)
+                                       os.path.join(save_dir,
+                                                    "batch_%04d_%02d_%02d_%02d.png" % (
+                                                        count, between[0], between[1], step_idx)))
                     batch_buffer = list()
             if len(batch_buffer):
                 save_concat_images(batch_buffer, count,
-                                   os.path.join(save_dir, "batch_%04d_interpolated_%02d.png" % (count, label)))
-                print("batch %d saved" % count)
+                                   os.path.join(save_dir, "batch_%04d_%02d_%02d_%02d.png" % (
+                                       count, between[0], between[1], step_idx)))
 
-    def train(self, lr=0.0002, epoch=100, schedule=10, resume=False,
+    def train(self, lr=0.0002, epoch=100, schedule=10, resume=True,
               freeze_encoder=False, fine_tune=None, sample_steps=10):
         g_vars, d_vars = self.retrieve_trainable_vars(freeze_encoder=freeze_encoder)
         input_handle, loss_handle, _, summary_handle = self.retrieve_handles()

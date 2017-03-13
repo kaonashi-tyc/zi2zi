@@ -3,9 +3,21 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import tensorflow as tf
+import os
 import argparse
+import imageio
+import glob
+import scipy.misc as misc
+from model.unet import UNet
 
-from model import UNet
+
+def compile_frames_to_gif(frame_dir, gif_file):
+    frames = sorted(glob.glob(os.path.join(frame_dir, "*.png")))
+    print(frames)
+    images = [misc.imresize(imageio.imread(f), interp='nearest', size=0.25) for f in frames]
+    imageio.mimsave(gif_file, images, duration=0.1)
+    return gif_file
+
 
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--experiment_dir', dest='experiment_dir', required=True,
@@ -21,6 +33,7 @@ parser.add_argument('--inst_norm', dest='inst_norm', type=bool, default=False,
 parser.add_argument('--interpolate', dest='interpolate', type=bool, default=False,
                     help='interpolate between different embedding vectors')
 parser.add_argument('--steps', dest='steps', type=int, default=10, help='interpolation steps in between vectors')
+parser.add_argument('--output_gif', dest='output_gif', type=str, default=None, help='output name transition gif')
 args = parser.parse_args()
 
 
@@ -42,6 +55,10 @@ def main(_):
                 raise Exception("for interpolation, len(embedding_ids) has to equal 2")
             model.interpolate(source_obj=args.source_obj, between=embedding_ids, save_dir=args.save_dir,
                               steps=args.steps)
+            if args.output_gif:
+                gif_path = os.path.join(args.save_dir, args.output_gif)
+                compile_frames_to_gif(args.save_dir, gif_path)
+                print("gif saved at %s" % gif_path)
 
 
 if __name__ == '__main__':

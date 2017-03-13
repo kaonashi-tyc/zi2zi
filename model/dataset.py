@@ -5,7 +5,7 @@ import cPickle as pickle
 import numpy as np
 import random
 import os
-from utils import pad_seq, bytes_to_file, \
+from .utils import pad_seq, bytes_to_file, \
     read_split_image, augment_image, normalize_image
 
 
