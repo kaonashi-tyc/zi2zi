@@ -432,7 +432,7 @@ class UNet(object):
                                        count, between[0], between[1], step_idx)))
 
     def train(self, lr=0.0002, epoch=100, schedule=10, resume=True,
-              freeze_encoder=False, fine_tune=None, sample_steps=10):
+              freeze_encoder=False, fine_tune=None, sample_steps=50, checkpoint_steps=500):
         g_vars, d_vars = self.retrieve_trainable_vars(freeze_encoder=freeze_encoder)
         input_handle, loss_handle, _, summary_handle = self.retrieve_handles()
 
@@ -516,7 +516,7 @@ class UNet(object):
                     # sample the current model states with val data
                     self.validate_model(val_batch_iter, ei, counter)
 
-                if counter % 500 == 0:
+                if counter % checkpoint_steps == 0:
                     print("Checkpoint: save checkpoint step %d" % counter)
                     self.checkpoint(saver, counter)
         # save the last checkpoint

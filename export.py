@@ -3,11 +3,10 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import tensorflow as tf
-import os
 import argparse
 from model.unet import UNet
 
-parser = argparse.ArgumentParser(description='')
+parser = argparse.ArgumentParser(description='Export generator weights from the checkpoint file')
 parser.add_argument('--model_dir', dest='model_dir', required=True,
                     help='directory that saves the model checkpoints')
 parser.add_argument('--batch_size', dest='batch_size', type=int, default=16, help='number of examples in batch')

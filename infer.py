@@ -5,21 +5,11 @@ from __future__ import absolute_import
 import tensorflow as tf
 import os
 import argparse
-import imageio
-import glob
-import scipy.misc as misc
 from model.unet import UNet
+from model.utils import compile_frames_to_gif
 
 
-def compile_frames_to_gif(frame_dir, gif_file):
-    frames = sorted(glob.glob(os.path.join(frame_dir, "*.png")))
-    print(frames)
-    images = [misc.imresize(imageio.imread(f), interp='nearest', size=0.25) for f in frames]
-    imageio.mimsave(gif_file, images, duration=0.1)
-    return gif_file
-
-
-parser = argparse.ArgumentParser(description='')
+parser = argparse.ArgumentParser(description='Inference for unseen data')
 parser.add_argument('--model_dir', dest='model_dir', required=True,
                     help='directory that saves the model checkpoints')
 parser.add_argument('--batch_size', dest='batch_size', type=int, default=16, help='number of examples in batch')

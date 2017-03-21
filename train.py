@@ -7,7 +7,7 @@ import argparse
 
 from model.unet import UNet
 
-parser = argparse.ArgumentParser(description='')
+parser = argparse.ArgumentParser(description='Train')
 parser.add_argument('--experiment_dir', dest='experiment_dir', required=True,
                     help='experiment directory, data, samples,checkpoints,etc')
 parser.add_argument('--experiment_id', dest='experiment_id', type=int, default=0,
@@ -29,7 +29,9 @@ parser.add_argument('--fine_tune', dest='fine_tune', type=str, default=None,
 parser.add_argument('--inst_norm', dest='inst_norm', type=bool, default=False,
                     help='use conditional instance normalization in your model')
 parser.add_argument('--sample_steps', dest='sample_steps', type=int, default=10,
-                    help='number of steps in between two samples in training')
+                    help='number of batches in between two samples are drawn from validation set')
+parser.add_argument('--checkpoint_steps', dest='checkpoint_steps', type=int, default=500,
+                    help='number of batches in between two checkpoints')
 args = parser.parse_args()
 
 
@@ -48,8 +50,8 @@ def main(_):
             ids = args.fine_tune.split(",")
             fine_tune_list = set([int(i) for i in ids])
         model.train(lr=args.lr, epoch=args.epoch, resume=args.resume,
-                    schedule=args.schedule, freeze_encoder=args.freeze_encoder,
-                    fine_tune=fine_tune_list, sample_steps=args.sample_steps)
+                    schedule=args.schedule, freeze_encoder=args.freeze_encoder, fine_tune=fine_tune_list,
+                    sample_steps=args.sample_steps, checkpoint_steps=args.checkpoint_steps)
 
 
 if __name__ == '__main__':
