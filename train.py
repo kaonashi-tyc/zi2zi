@@ -14,6 +14,8 @@ parser.add_argument('--experiment_id', dest='experiment_id', type=int, default=0
                     help='sequence id for the experiments you prepare to run')
 parser.add_argument('--image_size', dest='image_size', type=int, default=256,
                     help="size of your input and output image")
+parser.add_argument('--L1_penalty', dest='L1_penalty', type=int, default=100, help='weight for L1 loss')
+parser.add_argument('--Lconst_penalty', dest='Lconst_penalty', type=int, default=15, help='weight for const loss')
 parser.add_argument('--embedding_num', dest='embedding_num', type=int, default=40,
                     help="number for distinct embeddings")
 parser.add_argument('--embedding_dim', dest='embedding_dim', type=int, default=128, help="dimension for embedding")
@@ -42,7 +44,7 @@ def main(_):
     with tf.Session(config=config) as sess:
         model = UNet(args.experiment_dir, batch_size=args.batch_size, experiment_id=args.experiment_id,
                      input_width=args.image_size, output_width=args.image_size, embedding_num=args.embedding_num,
-                     embedding_dim=args.embedding_dim)
+                     embedding_dim=args.embedding_dim, L1_penalty=args.L1_penalty, Lconst_penalty=args.Lconst_penalty)
         model.register_session(sess)
         model.build_model(is_training=True, inst_norm=args.inst_norm)
         fine_tune_list = None
