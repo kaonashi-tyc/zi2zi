@@ -14,7 +14,8 @@ from .utils import scale_back, merge, save_concat_images
 
 # Auxiliary wrapper classes
 # Used to save handles(important nodes in computation graph) for later evaluation
-LossHandle = namedtuple("LossHandle", ["d_loss", "g_loss", "const_loss", "l1_loss", "category_loss", "cheat_loss"])
+LossHandle = namedtuple("LossHandle", ["d_loss", "g_loss", "const_loss", "l1_loss",
+                                       "category_loss", "cheat_loss", "tv_loss"])
 InputHandle = namedtuple("InputHandle", ["real_data", "embedding_ids"])
 EvalHandle = namedtuple("EvalHandle", ["encoder", "generator", "target", "source", "embedding"])
 SummaryHandle = namedtuple("SummaryHandle", ["d_merged", "g_merged"])
@@ -22,8 +23,8 @@ SummaryHandle = namedtuple("SummaryHandle", ["d_merged", "g_merged"])
 
 class UNet(object):
     def __init__(self, experiment_dir=None, experiment_id=0, batch_size=16, input_width=256, output_width=256,
-                 generator_dim=64, discriminator_dim=64, L1_penalty=100, Lconst_penalty=15, embedding_num=40,
-                 embedding_dim=128, input_filters=3, output_filters=3):
+                 generator_dim=64, discriminator_dim=64, L1_penalty=100, Lconst_penalty=15, Ltv_penalty=0.0,
+                 embedding_num=40, embedding_dim=128, input_filters=3, output_filters=3):
         self.experiment_dir = experiment_dir
         self.experiment_id = experiment_id
         self.batch_size = batch_size
@@ -33,6 +34,7 @@ class UNet(object):
         self.discriminator_dim = discriminator_dim
         self.L1_penalty = L1_penalty
         self.Lconst_penalty = Lconst_penalty
+        self.Ltv_penalty = Ltv_penalty
         self.embedding_num = embedding_num
         self.embedding_dim = embedding_dim
         self.input_filters = input_filters
@@ -188,6 +190,11 @@ class UNet(object):
 
         # L1 loss between real and generated images
         l1_loss = self.L1_penalty * tf.reduce_mean(tf.abs(fake_B - real_B))
+        # total variation loss
+        width = self.output_width
+        tv_loss = (tf.nn.l2_loss(fake_B[:, 1:, :, :] - fake_B[:, :width - 1, :, :]) / width
+                   + tf.nn.l2_loss(fake_B[:, :, 1:, :] - fake_B[:, :, :width - 1, :]) / width) * self.Ltv_penalty
+
         # maximize the chance generator fool the discriminator
         cheat_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(fake_D_logits, tf.ones_like(fake_D)))
 
@@ -220,7 +227,8 @@ class UNet(object):
                                  const_loss=const_loss,
                                  l1_loss=l1_loss,
                                  category_loss=category_loss,
-                                 cheat_loss=cheat_loss)
+                                 cheat_loss=cheat_loss,
+                                 tv_loss=tv_loss)
 
         eval_handle = EvalHandle(encoder=encoded_real_B,
                                  generator=fake_B,
@@ -493,22 +501,24 @@ class UNet(object):
                 # according to https://github.com/carpedm20/DCGAN-tensorflow
                 # collect all the losses along the way
                 _, batch_g_loss, category_loss, cheat_loss, \
-                const_loss, l1_loss, g_summary = self.sess.run([g_optimizer,
-                                                                loss_handle.g_loss,
-                                                                loss_handle.category_loss,
-                                                                loss_handle.cheat_loss,
-                                                                loss_handle.const_loss,
-                                                                loss_handle.l1_loss, summary_handle.g_merged],
-                                                               feed_dict={
-                                                                   real_data: batch_images,
-                                                                   embedding_ids: labels,
-                                                                   learning_rate: current_lr
-                                                               })
+                const_loss, l1_loss, tv_loss, g_summary = self.sess.run([g_optimizer,
+                                                                         loss_handle.g_loss,
+                                                                         loss_handle.category_loss,
+                                                                         loss_handle.cheat_loss,
+                                                                         loss_handle.const_loss,
+                                                                         loss_handle.l1_loss,
+                                                                         loss_handle.tv_loss,
+                                                                         summary_handle.g_merged],
+                                                                        feed_dict={
+                                                                            real_data: batch_images,
+                                                                            embedding_ids: labels,
+                                                                            learning_rate: current_lr
+                                                                        })
                 passed = time.time() - start_time
                 log_format = "Epoch: [%2d], [%4d/%4d] time: %4.4f, d_loss: %.5f, g_loss: %.5f, " + \
-                             "category_loss: %.5f, cheat_loss: %.5f, const_loss: %.5f, l1_loss: %.5f"
+                             "category_loss: %.5f, cheat_loss: %.5f, const_loss: %.5f, l1_loss: %.5f, tv_loss: %.5f"
                 print(log_format % (ei, bid, total_batches, passed, batch_d_loss, batch_g_loss,
-                                    category_loss, cheat_loss, const_loss, l1_loss))
+                                    category_loss, cheat_loss, const_loss, l1_loss, tv_loss))
                 summary_writer.add_summary(d_summary, counter)
                 summary_writer.add_summary(g_summary, counter)
 
