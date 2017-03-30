@@ -210,13 +210,14 @@ class UNet(object):
         const_loss_summary = tf.summary.scalar("const_loss", const_loss)
         d_loss_summary = tf.summary.scalar("d_loss", d_loss)
         g_loss_summary = tf.summary.scalar("g_loss", g_loss)
+        tv_loss_summary = tf.summary.scalar("tv_loss", tv_loss)
 
         d_merged_summary = tf.summary.merge([d_loss_real_summary, d_loss_fake_summary,
                                              category_loss_summary, d_loss_summary])
         g_merged_summary = tf.summary.merge([cheat_loss_summary, l1_loss_summary,
                                              fake_category_loss_summary,
                                              const_loss_summary,
-                                             g_loss_summary])
+                                             g_loss_summary, tv_loss_summary])
 
         # expose useful nodes in the graph as handles globally
         input_handle = InputHandle(real_data=real_data,
