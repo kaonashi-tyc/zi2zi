@@ -354,7 +354,7 @@ class UNet(object):
 
         def save_imgs(imgs, count):
             p = os.path.join(save_dir, "inferred_%04d.png" % count)
-            save_concat_images(imgs, count, img_path=p)
+            save_concat_images(imgs, img_path=p)
             print("generated images saved at %s" % p)
 
         count = 0
@@ -405,8 +405,13 @@ class UNet(object):
         embedding_vars = filter(filter_embedding_vars, tf.trainable_variables())
         # here comes the hack, we overwrite the original tensor
         # with interpolated ones. Note, the shape might differ
+
+        # this is to restore the embedding at the end
+        embedding_snapshot = list()
         for e_var in embedding_vars:
-            t = _interpolate_tensor(e_var.eval(session=self.sess))
+            val = e_var.eval(session=self.sess)
+            embedding_snapshot.append((e_var, val))
+            t = _interpolate_tensor(val)
             op = tf.assign(e_var, t, validate_shape=False)
             print("overwrite %s tensor" % e_var.name, "old_shape ->", e_var.get_shape(), "new shape ->", t.shape)
             self.sess.run(op)
@@ -429,16 +434,15 @@ class UNet(object):
                                            })
                 merged_fake_images = merge(scale_back(generated), [self.batch_size, 1])
                 batch_buffer.append(merged_fake_images)
-                if len(batch_buffer) == 16:
-                    save_concat_images(batch_buffer, count,
-                                       os.path.join(save_dir,
-                                                    "batch_%04d_%02d_%02d_%02d.png" % (
-                                                        count, between[0], between[1], step_idx)))
-                    batch_buffer = list()
             if len(batch_buffer):
-                save_concat_images(batch_buffer, count,
-                                   os.path.join(save_dir, "batch_%04d_%02d_%02d_%02d.png" % (
-                                       count, between[0], between[1], step_idx)))
+                save_concat_images(batch_buffer,
+                                   os.path.join(save_dir, "frame_%02d_%02d_step_%02d.png" % (
+                                       between[0], between[1], step_idx)))
+        # restore the embedding variables
+        print("restore embedding values")
+        for var, val in embedding_snapshot:
+            op = tf.assign(var, val, validate_shape=False)
+            self.sess.run(op)
 
     def train(self, lr=0.0002, epoch=100, schedule=10, resume=True,
               freeze_encoder=False, fine_tune=None, sample_steps=50, checkpoint_steps=500):

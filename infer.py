@@ -8,6 +8,10 @@ import argparse
 from model.unet import UNet
 from model.utils import compile_frames_to_gif
 
+"""
+People are made to have fun and be 中二 sometimes
+                                --Bored Yan LeCun
+"""
 
 parser = argparse.ArgumentParser(description='Inference for unseen data')
 parser.add_argument('--model_dir', dest='model_dir', required=True,
@@ -22,6 +26,8 @@ parser.add_argument('--interpolate', dest='interpolate', type=bool, default=Fals
                     help='interpolate between different embedding vectors')
 parser.add_argument('--steps', dest='steps', type=int, default=10, help='interpolation steps in between vectors')
 parser.add_argument('--output_gif', dest='output_gif', type=str, default=None, help='output name transition gif')
+parser.add_argument('--uroboros', dest='uroboros', type=bool, default=False,
+                    help='Shōnen yo, you have stepped into uncharted territory')
 args = parser.parse_args()
 
 
@@ -40,10 +46,17 @@ def main(_):
             model.infer(model_dir=args.model_dir, source_obj=args.source_obj, embedding_ids=embedding_ids,
                         save_dir=args.save_dir)
         else:
-            if len(embedding_ids) != 2:
-                raise Exception("for interpolation, len(embedding_ids) has to equal 2")
-            model.interpolate(model_dir=args.model_dir, source_obj=args.source_obj, between=embedding_ids,
-                              save_dir=args.save_dir, steps=args.steps)
+            if len(embedding_ids) < 2:
+                raise Exception("no need to interpolate yourself unless you are a narcissist")
+            chains = embedding_ids[:]
+            if args.uroboros:
+                chains.append(chains[0])
+            pairs = list()
+            for i in range(len(chains) - 1):
+                pairs.append((chains[i], chains[i + 1]))
+            for s, e in pairs:
+                model.interpolate(model_dir=args.model_dir, source_obj=args.source_obj, between=[s, e],
+                                  save_dir=args.save_dir, steps=args.steps)
             if args.output_gif:
                 gif_path = os.path.join(args.save_dir, args.output_gif)
                 compile_frames_to_gif(args.save_dir, gif_path)
