@@ -24,12 +24,12 @@ parser.add_argument('--epoch', dest='epoch', type=int, default=100, help='number
 parser.add_argument('--batch_size', dest='batch_size', type=int, default=16, help='number of examples in batch')
 parser.add_argument('--lr', dest='lr', type=float, default=0.001, help='initial learning rate for adam')
 parser.add_argument('--schedule', dest='schedule', type=int, default=10, help='number of epochs to half learning rate')
-parser.add_argument('--resume', dest='resume', type=bool, default=True, help='resume from previous training')
-parser.add_argument('--freeze_encoder', dest='freeze_encoder', type=bool, default=False,
+parser.add_argument('--resume', dest='resume', type=int, default=1, help='resume from previous training')
+parser.add_argument('--freeze_encoder', dest='freeze_encoder', type=int, default=0,
                     help="freeze encoder weights during training")
 parser.add_argument('--fine_tune', dest='fine_tune', type=str, default=None,
                     help='specific labels id to be fine tuned')
-parser.add_argument('--inst_norm', dest='inst_norm', type=bool, default=False,
+parser.add_argument('--inst_norm', dest='inst_norm', type=int, default=0,
                     help='use conditional instance normalization in your model')
 parser.add_argument('--sample_steps', dest='sample_steps', type=int, default=10,
                     help='number of batches in between two samples are drawn from validation set')

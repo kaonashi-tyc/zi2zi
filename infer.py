@@ -20,13 +20,13 @@ parser.add_argument('--batch_size', dest='batch_size', type=int, default=16, hel
 parser.add_argument('--source_obj', dest='source_obj', type=str, required=True, help='the source images for inference')
 parser.add_argument('--embedding_ids', default='embedding_ids', type=str, help='embeddings involved')
 parser.add_argument('--save_dir', default='save_dir', type=str, help='path to save inferred images')
-parser.add_argument('--inst_norm', dest='inst_norm', type=bool, default=False,
+parser.add_argument('--inst_norm', dest='inst_norm', type=int, default=0,
                     help='use conditional instance normalization in your model')
-parser.add_argument('--interpolate', dest='interpolate', type=bool, default=False,
+parser.add_argument('--interpolate', dest='interpolate', type=int, default=0,
                     help='interpolate between different embedding vectors')
 parser.add_argument('--steps', dest='steps', type=int, default=10, help='interpolation steps in between vectors')
 parser.add_argument('--output_gif', dest='output_gif', type=str, default=None, help='output name transition gif')
-parser.add_argument('--uroboros', dest='uroboros', type=bool, default=False,
+parser.add_argument('--uroboros', dest='uroboros', type=int, default=0,
                     help='Shōnen yo, you have stepped into uncharted territory')
 args = parser.parse_args()
 
