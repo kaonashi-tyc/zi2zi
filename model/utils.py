@@ -43,17 +43,10 @@ def read_split_image(img):
     return img_A, img_B
 
 
-def augment_image(img, multiplier=1.05):
-    # augment the image by:
-    # 1) enlarge the image
-    # 2) random crop the image back to its original size
+def shift_and_resize_image(img, shift_x, shift_y, nw, nh):
     w, h, _ = img.shape
-    nw = int(multiplier * w)
-    nh = int(multiplier * h)
     enlarged = misc.imresize(img, [nw, nh])
-    x = int(np.ceil(np.random.uniform(0.01, nw - w)))
-    y = int(np.ceil(np.random.uniform(0.01, nh - h)))
-    return enlarged[x:x + w, y:y + h]
+    return enlarged[shift_x:shift_x + w, shift_y:shift_y + h]
 
 
 def scale_back(images):

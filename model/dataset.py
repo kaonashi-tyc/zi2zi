@@ -6,7 +6,7 @@ import numpy as np
 import random
 import os
 from .utils import pad_seq, bytes_to_file, \
-    read_split_image, augment_image, normalize_image
+    read_split_image, shift_and_resize_image, normalize_image
 
 
 class PickledImageProvider(object):
@@ -40,9 +40,20 @@ def get_batch_iter(examples, batch_size, augment):
         img = bytes_to_file(img)
         img_A, img_B = read_split_image(img)
         if augment:
-            # will enlarge then shift image
-            img_A = augment_image(img_A)
-            img_B = augment_image(img_B)
+            # augment the image by:
+            # 1) enlarge the image
+            # 2) random crop the image back to its original size
+            # NOTE: image A and B needs to be in sync as how much
+            # to be shifted
+            w, h, _ = img_A.shape
+            multiplier = random.uniform(1.00, 1.20)
+            # add an eps to prevent cropping issue
+            nw = int(multiplier * w) + 1
+            nh = int(multiplier * h) + 1
+            shift_x = int(np.ceil(np.random.uniform(0.01, nw - w)))
+            shift_y = int(np.ceil(np.random.uniform(0.01, nh - h)))
+            img_A = shift_and_resize_image(img_A, shift_x, shift_y, nw, nh)
+            img_B = shift_and_resize_image(img_B, shift_x, shift_y, nw, nh)
         img_A = normalize_image(img_A)
         img_B = normalize_image(img_B)
         return np.concatenate([img_A, img_B], axis=2)
