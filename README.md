@@ -1,1 +1,1 @@
-# zi2zi: CJK family character style learning with GAN
+# zi2zi: Learning Easter Asian character style with GAN
