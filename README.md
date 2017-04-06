@@ -25,6 +25,11 @@ The network structure is based off pix2pix with the addition of category embeddi
 <img src="assets/cj_mix.png" alt="compare" style="width: 500px;"/>
 </div>
 
+### Random Gaussian Style
+<div style="text-align:center">
+<img src="assets/random.png" alt="compare" style="width: 500px;"/>
+</div>
+
 ### Korean
 <div style="text-align:center">
 <img src="assets/kr_mix.png" alt="compare" style="width: 500px;"/>
@@ -40,7 +45,7 @@ The network structure is based off pix2pix with the addition of category embeddi
 
 
 <p align="center">
-  <img src="assets/ko_wiki.gif" alt="animation", , style="width: 200px;"/>
+  <img src="assets/ko_wiki.gif" alt="animation", , style="width:200px;"/>
 </p>
 
 <p align="center">
@@ -62,10 +67,11 @@ Download tons of fonts as you please
 * imageio
 
 ### Preprocess
+The avoid IO bottleneck, preprocessing is necessary to pickle your data into binary then persist in memory during training.
 ### Experiment Layout
 ### Train
 ### Infer and Interpolate
-
+### Pretrained Model
 ## Acknowledgements
 Code derived and rehashed from:
 
