@@ -35,8 +35,12 @@ The network structure is based off pix2pix with the addition of category embeddi
 
 ### Animation
 <p align="center">
-  <img src="assets/poem.gif" alt="animation", style="width: 250px;"/>
-  <img src="assets/ko_wiki.gif" alt="animation", , style="width: 250px;"/>
+  <img src="assets/poem.gif" alt="animation", style="width: 200px;"/>
+</p>
+
+
+<p align="center">
+  <img src="assets/ko_wiki.gif" alt="animation", , style="width: 200px;"/>
 </p>
 
 <p align="center">
