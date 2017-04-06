@@ -6,10 +6,13 @@
 ## Introduction
 Learning eastern asian language typeface with GAN. zi2zi(字到字, meaning from character to character) is an application and extension of the recent popular [pix2pix](https://github.com/phillipi/pix2pix) model to Chinese characters.
 
+Details could be found in [**this**]() blog post.
+
 ## Network Structure
 ![alt network](assets/network.png)
 
-The network structure is based off pix2pix with the addition of category embedding and two other losses(category loss/constant loss). Details could be found in [this]() blog post.
+The network structure is based off pix2pix with the addition of category embedding and two other losses, category loss and constant loss, from [AC-GAN](https://arxiv.org/abs/1610.09585) and [DTN](https://arxiv.org/abs/1611.02200) respectively.
+
 ## Gallery
 ### Ground Truth Comparison
 
@@ -42,6 +45,8 @@ The network structure is based off pix2pix with the addition of category embeddi
 
 
 ## How to Use
+### Step Zero
+Download tons of fonts as you please
 ### Requirement
 * Python 2.7
 * CUDA
