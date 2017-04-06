@@ -79,7 +79,7 @@ python preprocess.py --src_font=src.ttf \
                      --filter=1
                      --shuffle=1
 ```
-Four default charsets are offered, including CN, CN_T(traditional), JP, KR. You can also point it to a one line file, it will generate the images of the characters in it. Note, **filter** option is highly recommended, it will presample some characters and filter all the images that share the same hashes, usually indicating character is missing. **label** indicating index in the category embeddings that this font associated with, default to 0.
+Four default charsets are offered, including CN, CN_T(traditional), JP, KR. You can also point it to a one line file, it will generate the images of the characters in it. Note, **filter** option is highly recommended, it will pre sample some characters and filter all the images that share the same hashes, usually indicating character is missing. **label** indicating index in the category embeddings that this font associated with, default to 0.
 
 After obtaining all images, run **package.py** to pickle the images and their corresponding labels into binary format:
 
@@ -98,7 +98,7 @@ experiment/
     ├── train.obj
     └── val.obj
 ```
-Create a **experiment** directory under the root of the project, and a data directory within it to place the two binary into it. Assuming a directory layout enforece data isolation, especially if you have multiple experiments running.
+Create a **experiment** directory under the root of the project, and a data directory within it to place the two binary into it. Assuming a directory layout enforce data isolation, especially if you have multiple experiments running.
 ### Train
 To start training run the following command
 
@@ -113,7 +113,7 @@ python train.py --experiment_dir=experiment
                 --L1_penalty=100 
                 --Lconst_penalty=15
 ```
-**schedule** here means in between how many epoches, the learning rate will decay by half. The train command will create **sample,logs,checkpoint** directory under **experiment_dir** if non-existed, where you can check and manage the progress of your training.
+**schedule** here means in between how many epochs, the learning rate will decay by half. The train command will create **sample,logs,checkpoint** directory under **experiment_dir** if non-existed, where you can check and manage the progress of your training.
 
 ### Infer and Interpolate
 After the training is done, run the following command to infer the unseen characters:
@@ -155,3 +155,4 @@ Code derived and rehashed from:
 
 ## License
 Apache 2.0
+
