@@ -17,22 +17,22 @@ The network structure is based off pix2pix with the addition of category embeddi
 ### Ground Truth Comparison
 
 <div style="text-align:center">
-<img src="assets/compare3.png" alt="compare" style="width: 50%;"/>
+<img src="assets/compare3.png" alt="compare" style="width: 10%;"/>
 </div>
 
 ### Brush Writing Fonts
 <div style="text-align:center">
-<img src="assets/cj_mix.png" alt="compare" style="width: 50%;"/>
+<img src="assets/cj_mix.png" alt="compare" style="width: 10%;"/>
 </div>
 
 ### Random Gaussian Style
 <div style="text-align:center">
-<img src="assets/random.png" alt="compare" style="width: 50%;"/>
+<img src="assets/random.png" alt="compare" style="width: 10%;"/>
 </div>
 
 ### Korean
 <div style="text-align:center">
-<img src="assets/kr_mix.png" alt="compare" style="width: 50%;"/>
+<img src="assets/kr_mix.png" alt="compare" style="width: 10%;"/>
 </div>
 
 ### Interpolation
