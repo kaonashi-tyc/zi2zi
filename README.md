@@ -66,10 +66,84 @@ Download tons of fonts as you please
 
 ### Preprocess
 The avoid IO bottleneck, preprocessing is necessary to pickle your data into binary then persist in memory during training.
+
+First run the below command to get the font images:
+
+```sh
+python preprocess.py --src_font=src.ttf \
+                     --dst_font=tgt.otf \
+                     --charset=CN\ 
+                     --sample_count=1000\
+                     --sample_dir=dir
+                     --label=0
+                     --filter=1
+                     --shuffle=1
+```
+Four default charsets are offered, including CN, CN_T(traditional), JP, KR. You can also point it to a one line file, it will generate the images of the characters in it. Note, **filter** option is highly recommended, it will presample some characters and filter all the images that share the same hashes, usually indicating character is missing. **label** indicating index in the category embeddings that this font associated with, default to 0.
+
+After obtaining all images, run **package.py** to pickle the images and their corresponding labels into binary format:
+
+```sh
+python package.py --dir=image_directories \
+                  --save_dir=binary_save_directory \
+                  --split_ratio=[0,1]
+```
+
+After running this, you will find two objects **train.obj** and **val.obj** for training and validation, respectively.
+
 ### Experiment Layout
+```sh
+experiment/
+└── data
+    ├── train.obj
+    └── val.obj
+```
+Create a **experiment** directory under the root of the project, and a data directory within it to place the two binary into it. Assuming a directory layout enforece data isolation, especially if you have multiple experiments running.
 ### Train
+To start training run the following command
+
+```sh
+python train.py --experiment_dir=experiment 
+                --experiment_id=0
+                --batch_size=16 
+                --lr=0.001
+                --epoch=40 
+                --sample_steps=50 
+                --schedule=20 
+                --L1_penalty=100 
+                --Lconst_penalty=15
+```
+**schedule** here means in between how many epoches, the learning rate will decay by half. The train command will create **sample,logs,checkpoint** directory under **experiment_dir** if non-existed, where you can check and manage the progress of your training.
+
 ### Infer and Interpolate
+After the training is done, run the following command to infer the unseen characters:
+
+```sh
+python infer.py --model_dir=checkpoint_dir/ 
+                --batch_size=16 
+                --source_obj=binary_obj_path 
+                --embedding_ids=label[s] of the font, separate by comma
+                --save_dir=save_dir/
+```
+
+Also you can run interpolation with this command:
+
+```sh
+python infer.py --model_dir= checkpoint_dir/ 
+                --batch_size=10
+                --source_obj=obj_path 
+                --embedding_ids=label[s] of the font, separate by comma
+                --save_dir=frames/ 
+                --output_gif=gif_path 
+                --interpolate=1 
+                --steps=10
+                --uroboros=1
+```
+
+It will run through all the pairs of fonts specified in embedding_ids and interpolate the number of steps as specified. 
+
 ### Pretrained Model
+Pretained model can be download [here](https://drive.google.com/open?id=0Bz6mX0EGe2ZuNEFSNWpTQkxPM2c), only generators are saved to reduce the model size.
 ## Acknowledgements
 Code derived and rehashed from:
 
