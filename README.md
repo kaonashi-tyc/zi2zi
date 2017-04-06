@@ -143,7 +143,7 @@ python infer.py --model_dir= checkpoint_dir/
 It will run through all the pairs of fonts specified in embedding_ids and interpolate the number of steps as specified. 
 
 ### Pretrained Model
-Pretained model can be download [here](https://drive.google.com/open?id=0Bz6mX0EGe2ZuNEFSNWpTQkxPM2c), only generators are saved to reduce the model size.
+Pretained model can be download [here](https://drive.google.com/open?id=0Bz6mX0EGe2ZuNEFSNWpTQkxPM2c) which is trained with 27 fonts, only generator is saved to reduce the model size.
 ## Acknowledgements
 Code derived and rehashed from:
 
