@@ -6,7 +6,7 @@
 ## Introduction
 Learning eastern asian language typeface with GAN. zi2zi(字到字, meaning from character to character) is an application and extension of the recent popular [pix2pix](https://github.com/phillipi/pix2pix) model to Chinese characters.
 
-Details could be found in [**this**]() blog post.
+Details could be found in [**this**](https://kaonashi-tyc.github.io/2017/04/06/zi2zi.html) blog post.
 
 ## Network Structure
 ![alt network](assets/network.png)
@@ -143,7 +143,7 @@ python infer.py --model_dir= checkpoint_dir/
 It will run through all the pairs of fonts specified in embedding_ids and interpolate the number of steps as specified. 
 
 ### Pretrained Model
-Pretained model can be download [here](https://drive.google.com/open?id=0Bz6mX0EGe2ZuNEFSNWpTQkxPM2c) which is trained with 27 fonts, only generator is saved to reduce the model size.
+Pretained model can be downloaded [here](https://drive.google.com/open?id=0Bz6mX0EGe2ZuNEFSNWpTQkxPM2c) which is trained with 27 fonts, only generator is saved to reduce the model size.
 ## Acknowledgements
 Code derived and rehashed from:
 
