@@ -17,41 +17,41 @@ The network structure is based off pix2pix with the addition of category embeddi
 ### Ground Truth Comparison
 
 <p align="center">
-<img src="assets/compare3.png" alt="compare" width="450"/>
+<img src="assets/compare3.png" alt="compare" width="500"/>
 </p>
 
 ### Brush Writing Fonts
 <p align="center">
-<img src="assets/cj_mix.png" alt="brush"  width="450"/>
+<img src="assets/cj_mix.png" alt="brush"  width="500"/>
 </p>
 
 ### Random Gaussian Style
 <p align="center">
-<img src="assets/random.png" alt="gaussian"  width="450"/>
+<img src="assets/random.png" alt="gaussian"  width="500"/>
 </p>
 
 ### Korean
 <p align="center">
-<img src="assets/kr_mix.png" alt="korean"  width="450"/>
+<img src="assets/kr_mix.png" alt="korean"  width="500"/>
 </p>
 
 ### Interpolation
 <p align="center">
-  <img src="assets/transition.png" alt="animation",  width="450"/>
+  <img src="assets/transition.png" alt="animation",  width="500"/>
 </p>
 
 ### Animation
 <p align="center">
-  <img src="assets/poem.gif" alt="animation",  width="200"/>
+  <img src="assets/poem.gif" alt="animation",  width="250"/>
 </p>
 
 
 <p align="center">
-  <img src="assets/ko_wiki.gif" alt="animation", width="200"/>
+  <img src="assets/ko_wiki.gif" alt="animation", width="250"/>
 </p>
 
 <p align="center">
-  <img src="assets/reddit_bonus_humor_easter_egg.gif" alt="easter egg"  width="250"/>
+  <img src="assets/reddit_bonus_humor_easter_egg.gif" alt="easter egg"  width="300"/>
 </p>
 
 
