@@ -1,2 +1,1 @@
-# char2char
-CJK family character style learning with pix2pix
+# zi2zi: CJK family character style learning with GAN
