@@ -70,10 +70,10 @@ The avoid IO bottleneck, preprocessing is necessary to pickle your data into bin
 First run the below command to get the font images:
 
 ```sh
-python preprocess.py --src_font=src.ttf \
-                     --dst_font=tgt.otf \
-                     --charset=CN\ 
-                     --sample_count=1000\
+python preprocess.py --src_font=src.ttf
+                     --dst_font=tgt.otf
+                     --charset=CN 
+                     --sample_count=1000
                      --sample_dir=dir
                      --label=0
                      --filter=1
@@ -84,8 +84,8 @@ Four default charsets are offered, including CN, CN_T(traditional), JP, KR. You 
 After obtaining all images, run **package.py** to pickle the images and their corresponding labels into binary format:
 
 ```sh
-python package.py --dir=image_directories \
-                  --save_dir=binary_save_directory \
+python package.py --dir=image_directories
+                  --save_dir=binary_save_directory
                   --split_ratio=[0,1]
 ```
 
