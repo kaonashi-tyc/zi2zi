@@ -4,9 +4,9 @@
 </p>
 
 ## Introduction
-Learning eastern asian language typeface with GAN. zi2zi(字到字, meaning from character to character) is an application and extension of the recent popular [pix2pix](https://github.com/phillipi/pix2pix) model to Chinese characters.
+Learning eastern asian language typefaces with GAN. zi2zi(字到字, meaning from character to character) is an application and extension of the recent popular [pix2pix](https://github.com/phillipi/pix2pix) model to Chinese characters.
 
-Details could be found in [**this**](https://kaonashi-tyc.github.io/2017/04/06/zi2zi.html) blog post.
+Details could be found in this [**blog post**](https://kaonashi-tyc.github.io/2017/04/06/zi2zi.html).
 
 ## Network Structure
 ![alt network](assets/network.png)
@@ -14,7 +14,7 @@ Details could be found in [**this**](https://kaonashi-tyc.github.io/2017/04/06/z
 The network structure is based off pix2pix with the addition of category embedding and two other losses, category loss and constant loss, from [AC-GAN](https://arxiv.org/abs/1610.09585) and [DTN](https://arxiv.org/abs/1611.02200) respectively.
 
 ## Gallery
-### Ground Truth Comparison
+### Compare with Ground Truth
 
 <p align="center">
 <img src="assets/compare3.png" alt="compare" width="600"/>
@@ -65,7 +65,7 @@ Download tons of fonts as you please
 * imageio
 
 ### Preprocess
-The avoid IO bottleneck, preprocessing is necessary to pickle your data into binary then persist in memory during training.
+To avoid IO bottleneck, preprocessing is necessary to pickle your data into binary and persist in memory during training.
 
 First run the below command to get the font images:
 
@@ -79,7 +79,7 @@ python preprocess.py --src_font=src.ttf
                      --filter=1
                      --shuffle=1
 ```
-Four default charsets are offered, including CN, CN_T(traditional), JP, KR. You can also point it to a one line file, it will generate the images of the characters in it. Note, **filter** option is highly recommended, it will pre sample some characters and filter all the images that share the same hashes, usually indicating character is missing. **label** indicating index in the category embeddings that this font associated with, default to 0.
+Four default charsets are offered: CN, CN_T(traditional), JP, KR. You can also point it to a one line file, it will generate the images of the characters in it. Note, **filter** option is highly recommended, it will pre sample some characters and filter all the images that have the same hash, usually indicating that character is missing. **label** indicating index in the category embeddings that this font associated with, default to 0.
 
 After obtaining all images, run **package.py** to pickle the images and their corresponding labels into binary format:
 
@@ -89,7 +89,7 @@ python package.py --dir=image_directories
                   --split_ratio=[0,1]
 ```
 
-After running this, you will find two objects **train.obj** and **val.obj** for training and validation, respectively.
+After running this, you will find two objects **train.obj** and **val.obj** under the save_dir for training and validation, respectively.
 
 ### Experiment Layout
 ```sh
@@ -98,7 +98,7 @@ experiment/
     ├── train.obj
     └── val.obj
 ```
-Create a **experiment** directory under the root of the project, and a data directory within it to place the two binary into it. Assuming a directory layout enforce data isolation, especially if you have multiple experiments running.
+Create a **experiment** directory under the root of the project, and a data directory within it to place the two binaries. Assuming a directory layout enforce bettet data isolation, especially if you have multiple experiments running.
 ### Train
 To start training run the following command
 
@@ -116,7 +116,7 @@ python train.py --experiment_dir=experiment
 **schedule** here means in between how many epochs, the learning rate will decay by half. The train command will create **sample,logs,checkpoint** directory under **experiment_dir** if non-existed, where you can check and manage the progress of your training.
 
 ### Infer and Interpolate
-After the training is done, run the following command to infer the unseen characters:
+After training is done, run the below command to infer test data:
 
 ```sh
 python infer.py --model_dir=checkpoint_dir/ 
@@ -126,7 +126,7 @@ python infer.py --model_dir=checkpoint_dir/
                 --save_dir=save_dir/
 ```
 
-Also you can run interpolation with this command:
+Also you can do interpolation with this command:
 
 ```sh
 python infer.py --model_dir= checkpoint_dir/ 
@@ -143,7 +143,7 @@ python infer.py --model_dir= checkpoint_dir/
 It will run through all the pairs of fonts specified in embedding_ids and interpolate the number of steps as specified. 
 
 ### Pretrained Model
-Pretained model can be downloaded [here](https://drive.google.com/open?id=0Bz6mX0EGe2ZuNEFSNWpTQkxPM2c) which is trained with 27 fonts, only generator is saved to reduce the model size.
+Pretained model can be downloaded [here](https://drive.google.com/open?id=0Bz6mX0EGe2ZuNEFSNWpTQkxPM2c) which is trained with 27 fonts, only generator is saved to reduce the model size. You can use encoder in the this pretrained model to accelerate the training process.
 ## Acknowledgements
 Code derived and rehashed from:
 
