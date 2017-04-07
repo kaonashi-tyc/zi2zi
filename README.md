@@ -1,4 +1,4 @@
-# zi2zi: Learning Easter Asian character style with GAN
+# zi2zi: Master Chinese Calligraphy with Conditional Adversarial Networks
 <p align="center">
   <img src="assets/intro.gif" alt="animation", style="width: 350px;"/>
 </p>
