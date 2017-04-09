@@ -25,6 +25,12 @@ The network structure is based off pix2pix with the addition of category embeddi
 <img src="assets/cj_mix.png" alt="brush"  width="600"/>
 </p>
 
+### Cursive Script (Requested by SNS audience)
+<p align="center">
+<img src="assets/cursive.png" alt="cursive"  width="600"/>
+</p>
+
+
 ### Random Gaussian Style
 <p align="center">
 <img src="assets/random.png" alt="gaussian"  width="600"/>
