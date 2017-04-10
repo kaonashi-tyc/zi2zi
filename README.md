@@ -76,14 +76,14 @@ To avoid IO bottleneck, preprocessing is necessary to pickle your data into bina
 First run the below command to get the font images:
 
 ```sh
-python preprocess.py --src_font=src.ttf
-                     --dst_font=tgt.otf
-                     --charset=CN 
-                     --sample_count=1000
-                     --sample_dir=dir
-                     --label=0
-                     --filter=1
-                     --shuffle=1
+python font2img.py --src_font=src.ttf
+                   --dst_font=tgt.otf
+                   --charset=CN 
+                   --sample_count=1000
+                   --sample_dir=dir
+                   --label=0
+                   --filter=1
+                   --shuffle=1
 ```
 Four default charsets are offered: CN, CN_T(traditional), JP, KR. You can also point it to a one line file, it will generate the images of the characters in it. Note, **filter** option is highly recommended, it will pre sample some characters and filter all the images that have the same hash, usually indicating that character is missing. **label** indicating index in the category embeddings that this font associated with, default to 0.
 
