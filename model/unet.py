@@ -24,7 +24,7 @@ SummaryHandle = namedtuple("SummaryHandle", ["d_merged", "g_merged"])
 class UNet(object):
     def __init__(self, experiment_dir=None, experiment_id=0, batch_size=16, input_width=256, output_width=256,
                  generator_dim=64, discriminator_dim=64, L1_penalty=100, Lconst_penalty=15, Ltv_penalty=0.0,
-                 embedding_num=40, embedding_dim=128, input_filters=3, output_filters=3):
+                 Lcategory_penalty=1.0, embedding_num=40, embedding_dim=128, input_filters=3, output_filters=3):
         self.experiment_dir = experiment_dir
         self.experiment_id = experiment_id
         self.batch_size = batch_size
@@ -35,6 +35,7 @@ class UNet(object):
         self.L1_penalty = L1_penalty
         self.Lconst_penalty = Lconst_penalty
         self.Ltv_penalty = Ltv_penalty
+        self.Lcategory_penalty = Lcategory_penalty
         self.embedding_num = embedding_num
         self.embedding_dim = embedding_dim
         self.input_filters = input_filters
@@ -157,13 +158,16 @@ class UNet(object):
                                     self.input_filters + self.output_filters],
                                    name='real_A_and_B_images')
         embedding_ids = tf.placeholder(tf.int64, shape=None, name="embedding_ids")
+        # shuffled the embedding ids to create
+        # random examples out of the training set
+        shuffled_ids = tf.random_shuffle(embedding_ids, name="shuffled_embedding_ids")
         # target images
         real_B = real_data[:, :, :, :self.input_filters]
         # source images
         real_A = real_data[:, :, :, self.input_filters:self.input_filters + self.output_filters]
 
         embedding = init_embedding(self.embedding_num, self.embedding_dim)
-        fake_B, encoded_real_B = self.generator(real_A, embedding, embedding_ids, is_training=is_training,
+        fake_B, encoded_real_A = self.generator(real_A, embedding, embedding_ids, is_training=is_training,
                                                 inst_norm=inst_norm)
         real_AB = tf.concat([real_A, real_B], 3)
         fake_AB = tf.concat([real_A, fake_B], 3)
@@ -173,27 +177,43 @@ class UNet(object):
         real_D, real_D_logits, real_category_logits = self.discriminator(real_AB, is_training=is_training, reuse=False)
         fake_D, fake_D_logits, fake_category_logits = self.discriminator(fake_AB, is_training=is_training, reuse=True)
 
+        shuffled_B, _ = self.generator(real_A, embedding, embedding_ids, is_training=is_training,
+                                       inst_norm=inst_norm, reuse=True)
+
+        shuffled_AB = tf.concat([real_A, shuffled_B], 3)
+
+        shuffled_D, shuffled_D_logits, shuffled_category_logits = self.discriminator(shuffled_AB,
+                                                                                     is_training=is_training,
+                                                                                     reuse=True)
+
         # encoding constant loss
         # this loss assume that generated imaged and real image
         # should reside in the same space and close to each other
         encoded_fake_B = self.encoder(fake_B, is_training, reuse=True)[0]
-        const_loss = tf.reduce_mean(tf.square(encoded_real_B - encoded_fake_B)) * self.Lconst_penalty
+        encoded_shuffle_B = self.encoder(shuffled_B, is_training, reuse=True)[0]
+        const_loss = (tf.reduce_mean(tf.square(encoded_real_A - encoded_fake_B)) + tf.reduce_mean(
+            tf.square(encoded_real_A - encoded_shuffle_B))) * self.Lconst_penalty
 
         # category loss
         true_labels = tf.reshape(tf.one_hot(indices=embedding_ids, depth=self.embedding_num),
                                  shape=[self.batch_size, self.embedding_num])
+        shuffled_labels = tf.reshape(tf.one_hot(indices=shuffled_ids, depth=self.embedding_num),
+                                     shape=[self.batch_size, self.embedding_num])
         real_category_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=real_category_logits,
                                                                                     labels=true_labels))
         fake_category_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fake_category_logits,
                                                                                     labels=true_labels))
-        category_loss = (real_category_loss + fake_category_loss) / 2.0
+        shuffled_category_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=shuffled_category_logits,
+                                                                                        labels=shuffled_labels))
+        category_loss = self.Lcategory_penalty * (real_category_loss + fake_category_loss + shuffled_category_loss) / 3.0
 
         # binary real/fake loss
         d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=real_D_logits,
                                                                              labels=tf.ones_like(real_D)))
         d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fake_D_logits,
                                                                              labels=tf.zeros_like(fake_D)))
-
+        d_loss_shuffled = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=shuffled_D_logits,
+                                                                                 labels=tf.zeros_like(shuffled_D)))
         # L1 loss between real and generated images
         l1_loss = self.L1_penalty * tf.reduce_mean(tf.abs(fake_B - real_B))
         # total variation loss
@@ -203,10 +223,13 @@ class UNet(object):
 
         # maximize the chance generator fool the discriminator
         cheat_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=fake_D_logits,
-                                                                            labels=tf.ones_like(fake_D)))
+                                                                            labels=tf.ones_like(fake_D))) + \
+                     tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=shuffled_D_logits,
+                                                                            labels=tf.ones_like(shuffled_D)))
 
-        d_loss = d_loss_real + d_loss_fake + category_loss
-        g_loss = cheat_loss + l1_loss + fake_category_loss + const_loss
+        d_loss = d_loss_real + d_loss_fake + category_loss + d_loss_shuffled
+        g_loss = cheat_loss + l1_loss + self.Lcategory_penalty * (fake_category_loss + shuffled_category_loss) / 2.0 + \
+                 const_loss
 
         d_loss_real_summary = tf.summary.scalar("d_loss_real", d_loss_real)
         d_loss_fake_summary = tf.summary.scalar("d_loss_fake", d_loss_fake)
@@ -238,7 +261,7 @@ class UNet(object):
                                  cheat_loss=cheat_loss,
                                  tv_loss=tv_loss)
 
-        eval_handle = EvalHandle(encoder=encoded_real_B,
+        eval_handle = EvalHandle(encoder=encoded_real_A,
                                  generator=fake_B,
                                  target=real_B,
                                  source=real_A,

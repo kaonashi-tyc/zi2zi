@@ -17,6 +17,8 @@ parser.add_argument('--image_size', dest='image_size', type=int, default=256,
 parser.add_argument('--L1_penalty', dest='L1_penalty', type=int, default=100, help='weight for L1 loss')
 parser.add_argument('--Lconst_penalty', dest='Lconst_penalty', type=int, default=15, help='weight for const loss')
 parser.add_argument('--Ltv_penalty', dest='Ltv_penalty', type=float, default=0.0, help='weight for tv loss')
+parser.add_argument('--Lcategory_penalty', dest='Lcategory_penalty', type=float, default=1.0,
+                    help='weight for category loss')
 parser.add_argument('--embedding_num', dest='embedding_num', type=int, default=40,
                     help="number for distinct embeddings")
 parser.add_argument('--embedding_dim', dest='embedding_dim', type=int, default=128, help="dimension for embedding")
@@ -46,7 +48,7 @@ def main(_):
         model = UNet(args.experiment_dir, batch_size=args.batch_size, experiment_id=args.experiment_id,
                      input_width=args.image_size, output_width=args.image_size, embedding_num=args.embedding_num,
                      embedding_dim=args.embedding_dim, L1_penalty=args.L1_penalty, Lconst_penalty=args.Lconst_penalty,
-                     Ltv_penalty=args.Ltv_penalty)
+                     Ltv_penalty=args.Ltv_penalty, Lcategory_penalty=args.Lcategory_penalty)
         model.register_session(sess)
         model.build_model(is_training=True, inst_norm=args.inst_norm)
         fine_tune_list = None
