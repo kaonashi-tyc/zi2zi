@@ -9,14 +9,14 @@ import os
 import time
 from collections import namedtuple
 from .ops import conv2d, deconv2d, lrelu, fc, batch_norm, init_embedding, conditional_instance_norm
-from .dataset import TrainDataProvider, InjectDataProvider
+from .dataset import TrainDataProvider, InjectDataProvider, NeverEndingLoopingProvider
 from .utils import scale_back, merge, save_concat_images
 
 # Auxiliary wrapper classes
 # Used to save handles(important nodes in computation graph) for later evaluation
 LossHandle = namedtuple("LossHandle", ["d_loss", "g_loss", "const_loss", "l1_loss",
                                        "category_loss", "cheat_loss", "tv_loss"])
-InputHandle = namedtuple("InputHandle", ["real_data", "embedding_ids"])
+InputHandle = namedtuple("InputHandle", ["real_data", "embedding_ids", "shuffled_data", "shuffled_ids"])
 EvalHandle = namedtuple("EvalHandle", ["encoder", "generator", "target", "source", "embedding"])
 SummaryHandle = namedtuple("SummaryHandle", ["d_merged", "g_merged"])
 
@@ -157,14 +157,19 @@ class UNet(object):
                                    [self.batch_size, self.input_width, self.input_width,
                                     self.input_filters + self.output_filters],
                                    name='real_A_and_B_images')
+        # shuffled data are examples that don't have the corresponding target images
+        # however, except L1 loss, those examples can be used to compute other losses
+        shuffled_data = tf.placeholder(tf.float32,
+                                       [self.batch_size, self.input_width, self.input_width,
+                                        self.input_filters + self.output_filters],
+                                       name='shuffled_A_and_B_images')
         embedding_ids = tf.placeholder(tf.int64, shape=None, name="embedding_ids")
-        # shuffled the embedding ids to create
-        # random examples out of the training set
-        shuffled_ids = tf.random_shuffle(embedding_ids, name="shuffled_embedding_ids")
+        shuffled_ids = tf.placeholder(tf.int64, shape=None, name="shuffled_embedding_ids")
         # target images
         real_B = real_data[:, :, :, :self.input_filters]
         # source images
         real_A = real_data[:, :, :, self.input_filters:self.input_filters + self.output_filters]
+        shuffled_A = shuffled_data[:, :, :, self.input_filters:self.input_filters + self.output_filters]
 
         embedding = init_embedding(self.embedding_num, self.embedding_dim)
         fake_B, encoded_real_A = self.generator(real_A, embedding, embedding_ids, is_training=is_training,
@@ -177,10 +182,10 @@ class UNet(object):
         real_D, real_D_logits, real_category_logits = self.discriminator(real_AB, is_training=is_training, reuse=False)
         fake_D, fake_D_logits, fake_category_logits = self.discriminator(fake_AB, is_training=is_training, reuse=True)
 
-        shuffled_B, _ = self.generator(real_A, embedding, embedding_ids, is_training=is_training,
-                                       inst_norm=inst_norm, reuse=True)
+        shuffled_B, encoded_shuffled_A = self.generator(shuffled_A, embedding, embedding_ids, is_training=is_training,
+                                                        inst_norm=inst_norm, reuse=True)
 
-        shuffled_AB = tf.concat([real_A, shuffled_B], 3)
+        shuffled_AB = tf.concat([shuffled_A, shuffled_B], 3)
 
         shuffled_D, shuffled_D_logits, shuffled_category_logits = self.discriminator(shuffled_AB,
                                                                                      is_training=is_training,
@@ -192,7 +197,7 @@ class UNet(object):
         encoded_fake_B = self.encoder(fake_B, is_training, reuse=True)[0]
         encoded_shuffle_B = self.encoder(shuffled_B, is_training, reuse=True)[0]
         const_loss = (tf.reduce_mean(tf.square(encoded_real_A - encoded_fake_B)) + tf.reduce_mean(
-            tf.square(encoded_real_A - encoded_shuffle_B))) * self.Lconst_penalty
+            tf.square(encoded_shuffled_A - encoded_shuffle_B))) * self.Lconst_penalty
 
         # category loss
         true_labels = tf.reshape(tf.one_hot(indices=embedding_ids, depth=self.embedding_num),
@@ -205,7 +210,8 @@ class UNet(object):
                                                                                     labels=true_labels))
         shuffled_category_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=shuffled_category_logits,
                                                                                         labels=shuffled_labels))
-        category_loss = self.Lcategory_penalty * (real_category_loss + fake_category_loss + shuffled_category_loss) / 3.0
+        category_loss = self.Lcategory_penalty * (
+            real_category_loss + fake_category_loss + shuffled_category_loss) / 3.0
 
         # binary real/fake loss
         d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=real_D_logits,
@@ -251,7 +257,9 @@ class UNet(object):
 
         # expose useful nodes in the graph as handles globally
         input_handle = InputHandle(real_data=real_data,
-                                   embedding_ids=embedding_ids)
+                                   embedding_ids=embedding_ids,
+                                   shuffled_data=shuffled_data,
+                                   shuffled_ids=shuffled_ids)
 
         loss_handle = LossHandle(d_loss=d_loss,
                                  g_loss=g_loss,
@@ -340,7 +348,9 @@ class UNet(object):
                                                  loss_handle.l1_loss],
                                                 feed_dict={
                                                     input_handle.real_data: input_images,
-                                                    input_handle.embedding_ids: embedding_ids
+                                                    input_handle.embedding_ids: embedding_ids,
+                                                    input_handle.shuffled_data: input_images,
+                                                    input_handle.shuffled_ids: embedding_ids
                                                 })
         return fake_images, real_images, d_loss, g_loss, l1_loss
 
@@ -474,7 +484,7 @@ class UNet(object):
             op = tf.assign(var, val, validate_shape=False)
             self.sess.run(op)
 
-    def train(self, lr=0.0002, epoch=100, schedule=10, resume=True,
+    def train(self, lr=0.0002, epoch=100, schedule=10, resume=True, shuffled_source=None,
               freeze_encoder=False, fine_tune=None, sample_steps=50, checkpoint_steps=500):
         g_vars, d_vars = self.retrieve_trainable_vars(freeze_encoder=freeze_encoder)
         input_handle, loss_handle, _, summary_handle = self.retrieve_handles()
@@ -488,11 +498,24 @@ class UNet(object):
         tf.global_variables_initializer().run()
         real_data = input_handle.real_data
         embedding_ids = input_handle.embedding_ids
+        shuffled_data = input_handle.shuffled_data
+        shuffled_ids = input_handle.shuffled_ids
 
         # filter by one type of labels
         data_provider = TrainDataProvider(self.data_dir, filter_by=fine_tune)
         total_batches = data_provider.compute_total_batch_num(self.batch_size)
         val_batch_iter = data_provider.get_val_iter(self.batch_size)
+        if shuffled_source:
+            # external shuffled source specified, those examples don't
+            # have corresponding target example, however, they are a valuable
+            # provider to prevent discriminator from getting stuck
+            print("loading shuffled sources -> {0}".format(shuffled_source))
+            shuffled_data_iter = NeverEndingLoopingProvider(shuffled_source) \
+                .get_random_embedding_iter(self.batch_size, data_provider.get_all_labels())
+        else:
+            # if not specified, using training data
+            shuffled_data_iter = NeverEndingLoopingProvider(data_provider.get_train_val_path()[0]) \
+                .get_random_embedding_iter(self.batch_size, data_provider.get_all_labels())
 
         saver = tf.train.Saver(max_to_keep=3)
         summary_writer = tf.summary.FileWriter(self.log_dir, self.sess.graph)
@@ -504,6 +527,7 @@ class UNet(object):
         current_lr = lr
         counter = 0
         start_time = time.time()
+
         for ei in range(epoch):
             train_batch_iter = data_provider.get_train_iter(self.batch_size)
 
@@ -517,20 +541,25 @@ class UNet(object):
             for bid, batch in enumerate(train_batch_iter):
                 counter += 1
                 labels, batch_images = batch
+                shuffled_labels, shuffled_batch = next(shuffled_data_iter)
                 # Optimize D
                 _, batch_d_loss, d_summary = self.sess.run([d_optimizer, loss_handle.d_loss,
                                                             summary_handle.d_merged],
                                                            feed_dict={
                                                                real_data: batch_images,
                                                                embedding_ids: labels,
-                                                               learning_rate: current_lr
+                                                               learning_rate: current_lr,
+                                                               shuffled_data: shuffled_batch,
+                                                               shuffled_ids: shuffled_labels
                                                            })
                 # Optimize G
                 _, batch_g_loss = self.sess.run([g_optimizer, loss_handle.g_loss],
                                                 feed_dict={
                                                     real_data: batch_images,
                                                     embedding_ids: labels,
-                                                    learning_rate: current_lr
+                                                    learning_rate: current_lr,
+                                                    shuffled_data: shuffled_batch,
+                                                    shuffled_ids: shuffled_labels
                                                 })
                 # magic move to Optimize G again
                 # according to https://github.com/carpedm20/DCGAN-tensorflow
@@ -547,7 +576,9 @@ class UNet(object):
                                                                         feed_dict={
                                                                             real_data: batch_images,
                                                                             embedding_ids: labels,
-                                                                            learning_rate: current_lr
+                                                                            learning_rate: current_lr,
+                                                                            shuffled_data: shuffled_batch,
+                                                                            shuffled_ids: shuffled_labels
                                                                         })
                 passed = time.time() - start_time
                 log_format = "Epoch: [%2d], [%4d/%4d] time: %4.4f, d_loss: %.5f, g_loss: %.5f, " + \
