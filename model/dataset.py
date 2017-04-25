@@ -144,6 +144,7 @@ class NeverEndingLoopingProvider(InjectDataProvider):
 
     def get_random_embedding_iter(self, batch_size, embedding_ids):
         while True:
+            # np.random.shuffle(self.data.examples)
             rand_iter = super(NeverEndingLoopingProvider, self) \
                 .get_random_embedding_iter(batch_size, embedding_ids)
             for labels, images in rand_iter:
