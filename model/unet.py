@@ -220,7 +220,7 @@ class UNet(object):
             # it is useful when discriminator get saturated and d_loss drops to near zero
             # those data could be used as additional source of losses
             external_A = external_data[:, :, :, self.input_filters:self.input_filters + self.output_filters]
-            external_B, encoded_external_A = self.generator(external_A, embedding, embedding_ids,
+            external_B, encoded_external_A = self.generator(external_A, embedding, external_ids,
                                                             is_training=is_training,
                                                             inst_norm=inst_norm, reuse=True)
             external_labels = tf.reshape(tf.one_hot(indices=external_ids, depth=self.embedding_num),
@@ -240,7 +240,7 @@ class UNet(object):
                                                                                      labels=tf.zeros_like(external_D)))
             cheat_loss += tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=external_D_logits,
                                                                                  labels=tf.ones_like(external_D)))
-            d_loss = d_loss_real + d_loss_fake + d_loss_external + (category_loss + external_category_loss) / 3.0
+            d_loss = d_loss_real + d_loss_fake + d_loss_external + category_loss + external_category_loss
             g_loss = cheat_loss + l1_loss + \
                      (self.Lcategory_penalty * fake_category_loss + external_category_loss) / 2.0 + \
                      (const_loss + external_const_loss) / 2.0 + tv_loss
