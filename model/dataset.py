@@ -76,8 +76,10 @@ class TrainDataProvider(object):
     def __init__(self, data_dir, train_name="train.obj", val_name="val.obj", filter_by=None):
         self.data_dir = data_dir
         self.filter_by = filter_by
-        self.train = PickledImageProvider(os.path.join(self.data_dir, train_name))
-        self.val = PickledImageProvider(os.path.join(self.data_dir, val_name))
+        self.train_path = os.path.join(self.data_dir, train_name)
+        self.val_path = os.path.join(self.data_dir, val_name)
+        self.train = PickledImageProvider(self.train_path)
+        self.val = PickledImageProvider(self.val_path)
         if self.filter_by:
             print("filter by label ->", filter_by)
             self.train.examples = filter(lambda e: e[0] in self.filter_by, self.train.examples)
@@ -106,6 +108,13 @@ class TrainDataProvider(object):
         """Total padded batch num"""
         return int(np.ceil(len(self.train.examples) / float(batch_size)))
 
+    def get_all_labels(self):
+        """Get all training labels"""
+        return list({e[0] for e in self.train.examples})
+
+    def get_train_val_path(self):
+        return self.train_path, self.val_path
+
 
 class InjectDataProvider(object):
     def __init__(self, obj_path):
@@ -127,3 +136,16 @@ class InjectDataProvider(object):
             # inject specific embedding style here
             labels = [random.choice(embedding_ids) for i in range(batch_size)]
             yield labels, images
+
+
+class NeverEndingLoopingProvider(InjectDataProvider):
+    def __init__(self, obj_path):
+        super(NeverEndingLoopingProvider, self).__init__(obj_path)
+
+    def get_random_embedding_iter(self, batch_size, embedding_ids):
+        while True:
+            # np.random.shuffle(self.data.examples)
+            rand_iter = super(NeverEndingLoopingProvider, self) \
+                .get_random_embedding_iter(batch_size, embedding_ids)
+            for labels, images in rand_iter:
+                yield labels, images

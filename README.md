@@ -38,7 +38,7 @@ The network structure is based off pix2pix with the addition of category embeddi
 
 ### Korean
 <p align="center">
-<img src="assets/kr_mix.png" alt="korean"  width="600"/>
+<img src="assets/kr_mix_v2.png" alt="korean"  width="600"/>
 </p>
 
 ### Interpolation
