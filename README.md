@@ -31,7 +31,7 @@ The network structure is based off pix2pix with the addition of category embeddi
 </p>
 
 
-### Ming Chao Style
+### Mingchao Style (宋体/明朝体)
 <p align="center">
 <img src="assets/mingchao4.png" alt="gaussian"  width="600"/>
 </p>
