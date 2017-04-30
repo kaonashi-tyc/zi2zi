@@ -37,10 +37,8 @@ parser.add_argument('--sample_steps', dest='sample_steps', type=int, default=10,
                     help='number of batches in between two samples are drawn from validation set')
 parser.add_argument('--checkpoint_steps', dest='checkpoint_steps', type=int, default=500,
                     help='number of batches in between two checkpoints')
-parser.add_argument('--tune_mode', dest='tune_mode', type=str, default=None,
-                    help='tune the model in different ways, could be shuffle|external')
-parser.add_argument('--external_source', dest='external_source', type=str, default=None,
-                    help='external source of images that used to regulate the model')
+parser.add_argument('--flip_labels', dest='flip_labels', type=int, default=None,
+                    help='whether flip training data labels or not, in fine tuning')
 args = parser.parse_args()
 
 
@@ -54,10 +52,8 @@ def main(_):
                      embedding_dim=args.embedding_dim, L1_penalty=args.L1_penalty, Lconst_penalty=args.Lconst_penalty,
                      Ltv_penalty=args.Ltv_penalty, Lcategory_penalty=args.Lcategory_penalty)
         model.register_session(sess)
-        if args.tune_mode:
-            if args.tune_mode not in ['shuffle', 'external']:
-                raise RuntimeError("tune_mode has to be either shuffle or external")
-            model.build_model(is_training=True, inst_norm=args.inst_norm, with_no_target_source=True)
+        if args.flip_labels:
+            model.build_model(is_training=True, inst_norm=args.inst_norm, no_target_source=True)
         else:
             model.build_model(is_training=True, inst_norm=args.inst_norm)
         fine_tune_list = None
@@ -67,7 +63,7 @@ def main(_):
         model.train(lr=args.lr, epoch=args.epoch, resume=args.resume,
                     schedule=args.schedule, freeze_encoder=args.freeze_encoder, fine_tune=fine_tune_list,
                     sample_steps=args.sample_steps, checkpoint_steps=args.checkpoint_steps,
-                    tune_mode=args.tune_mode, external_source=args.external_source)
+                    flip_labels=args.flip_labels)
 
 
 if __name__ == '__main__':
