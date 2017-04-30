@@ -31,9 +31,9 @@ The network structure is based off pix2pix with the addition of category embeddi
 </p>
 
 
-### Random Gaussian Style
+### Ming Chao Style
 <p align="center">
-<img src="assets/random.png" alt="gaussian"  width="600"/>
+<img src="assets/mingchao4.png" alt="gaussian"  width="600"/>
 </p>
 
 ### Korean
