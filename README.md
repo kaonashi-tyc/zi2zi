@@ -1,7 +1,5 @@
 # zi2zi: Master Chinese Calligraphy with Conditional Adversarial Networks
 
-[![Insight.io](https://insight.io/repoBadge/github.com/kaonashi-tyc/zi2zi)](https://insight.io/github.com/kaonashi-tyc/zi2zi)
-
 <p align="center">
   <img src="assets/intro.gif" alt="animation", style="width: 350px;"/>
 </p>
